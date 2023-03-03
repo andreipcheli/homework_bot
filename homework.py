@@ -9,10 +9,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 class SystemExit(Exception):
+    """Stop program."""
+
     pass
 
+
 class RequestException(Exception):
+    """Server does not respond."""
+
     pass
 
 
@@ -35,18 +41,16 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO,
     filename='main.log',
-    filemode='w'
-    )
-
+    filemode='w')
 
 
 def check_tokens():
-    """Check the availability of tokens"""
+    """Check the availability of tokens."""
     tokens = {'PRACTICUM_TOKEN': PRACTICUM_TOKEN,
-    'TELEGRAM_TOKEN': TELEGRAM_TOKEN,
-    'TELEGRAM_CHAT_ID': TELEGRAM_CHAT_ID}
+              'TELEGRAM_TOKEN': TELEGRAM_TOKEN,
+              'TELEGRAM_CHAT_ID': TELEGRAM_CHAT_ID}
     for token in tokens:
-        if tokens[token] == None:
+        if tokens[token] is None:
             logging.critical(f'{token} does not exist')
             raise SystemExit()
 
@@ -55,8 +59,8 @@ def send_message(bot, message):
     """Send a message with an update to user."""
     try:
         bot.send_message(
-        chat_id=TELEGRAM_CHAT_ID,
-        text=message,
+            chat_id=TELEGRAM_CHAT_ID,
+            text=message,
         )
         logging.debug('Message was sent by bot')
     except telegram.error.TelegramError:
@@ -64,17 +68,18 @@ def send_message(bot, message):
 
 
 def get_api_answer(timestamp):
-    """Get a data from https://practicum.yandex.ru/api/user_api/homework_statuses/ and return it in a format competible with python."""
+    """Get a data from https://practicum.yandex.ru/api/user_api/homework_statuses/.
+    Return it in a format competible with python.
+    """
     try:
-        response = requests.get(ENDPOINT, headers = HEADERS, params={'from_date': timestamp})
+        response = requests.get(
+            ENDPOINT, headers=HEADERS, params={'from_date': timestamp})
     except Exception as error:
         logging.error(f'Endpoint does not respond: {error}')
     if response.status_code != 200:
-        logging.error(f'Endpoint does not respond')
+        logging.error('Endpoint does not respond')
         raise RequestException('Server does not respond')
     return response.json()
-
-    
 
 
 def check_response(response):
@@ -92,6 +97,7 @@ def check_response(response):
         raise KeyError('Homework list is empty')
     return homework
 
+
 def parse_status(homework):
     """Generate a message with a homework update."""
     try:
@@ -100,7 +106,6 @@ def parse_status(homework):
         return f'Изменился статус проверки работы "{homework_name}". {verdict}'
     except KeyError:
         raise KeyError('The name of homework does not exist')
-
 
 
 def main():
@@ -120,10 +125,8 @@ def main():
 
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
-        
-        time.sleep(RETRY_PERIOD)
-            
 
+        time.sleep(RETRY_PERIOD)
 
 
 if __name__ == '__main__':
