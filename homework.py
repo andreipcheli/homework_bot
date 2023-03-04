@@ -3,23 +3,12 @@ import logging
 import requests
 import telegram
 import time
+import exception
 
 from dotenv import load_dotenv
 
 
 load_dotenv()
-
-
-class SystemExit(Exception):
-    """Stop program."""
-
-    pass
-
-
-class RequestException(Exception):
-    """Server does not respond."""
-
-    pass
 
 
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
@@ -37,12 +26,6 @@ HOMEWORK_VERDICTS = {
     'rejected': 'Работа проверена: у ревьюера есть замечания.'
 }
 
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO,
-    filename='main.log',
-    filemode='w')
-
 
 def check_tokens():
     """Check the availability of tokens."""
@@ -52,7 +35,7 @@ def check_tokens():
     for token in tokens:
         if tokens[token] is None:
             logging.critical(f'{token} does not exist')
-            raise SystemExit()
+            raise exception.SystemExit()
 
 
 def send_message(bot, message):
@@ -76,25 +59,25 @@ def get_api_answer(timestamp):
             ENDPOINT, headers=HEADERS, params={'from_date': timestamp})
     except Exception as error:
         logging.error(f'Endpoint does not respond: {error}')
+        raise exception.RequestException('Server does not respond')
     if response.status_code != 200:
         logging.error('Endpoint does not respond')
-        raise RequestException('Server does not respond')
+        raise exception.RequestException('Server does not respond')
     return response.json()
 
 
 def check_response(response):
     """Check the data from the response."""
     if not isinstance(response, dict):
-        raise TypeError
+        raise TypeError('Response does not contain homework')
     elif 'homeworks' not in response:
         raise Exception('Response does not contain "homeworks" key')
     elif not isinstance(response['homeworks'], list):
-        raise TypeError
+        raise TypeError('Response does not contain homework')
     try:
         homework = response['homeworks'][0]
     except KeyError:
         logging.error('Homework list is empty')
-        raise KeyError('Homework list is empty')
     return homework
 
 
@@ -114,8 +97,7 @@ def main():
 
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
-    # timestamp = 0
-
+    last_message_error = ''
     while True:
         try:
             response = get_api_answer(timestamp)
@@ -125,9 +107,20 @@ def main():
 
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
-
-        time.sleep(RETRY_PERIOD)
+            logging.error(message)
+            if last_message_error != message:
+                send_message(bot, message)
+                last_message_error = message
+            else:
+                last_message_error = ''
+        finally:
+            time.sleep(RETRY_PERIOD)
 
 
 if __name__ == '__main__':
+    logging.basicConfig(
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        level=logging.INFO,
+        filename='main.log',
+        filemode='w')
     main()
