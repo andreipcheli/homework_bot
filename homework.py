@@ -74,11 +74,7 @@ def check_response(response):
         raise Exception('Response does not contain "homeworks" key')
     elif not isinstance(response['homeworks'], list):
         raise TypeError('Response does not contain homework')
-    try:
-        homework = response['homeworks'][0]
-    except KeyError:
-        logging.error('Homework list is empty')
-    return homework
+    return response['homeworks']
 
 
 def parse_status(homework):
@@ -102,8 +98,12 @@ def main():
         try:
             response = get_api_answer(timestamp)
             checked_response = check_response(response)
-            message = parse_status(checked_response)
-            send_message(bot, message)
+            try:
+                homework = checked_response[0]
+                message = parse_status(homework)
+                send_message(bot, message)
+            except IndexError:
+                logging.info('Homework list is empty')
 
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
@@ -111,8 +111,8 @@ def main():
             if last_message_error != message:
                 send_message(bot, message)
                 last_message_error = message
-            else:
-                last_message_error = ''
+        else:
+            last_message_error = ''
         finally:
             time.sleep(RETRY_PERIOD)
 
